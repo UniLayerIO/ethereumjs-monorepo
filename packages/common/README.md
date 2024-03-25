@@ -261,6 +261,7 @@ The following custom chains are currently supported:
 - `xDaiChain`
 - `OptimisticKovan`
 - `OptimisticEthereum`
+- `UniLayerNetworkTestnet`
 
 `Common` instances created with this simplified `custom()` constructor can't be used in all usage contexts (the HF configuration is very likely not matching the actual chain) but can be useful for specific use cases, e.g. for sending a tx with `@ethereumjs/tx` to an L2 network (see the `Tx` library [README](https://github.com/ethereumjs/ethereumjs-monorepo/tree/master/packages/tx) for a complete usage example).
 

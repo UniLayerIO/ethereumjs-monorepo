@@ -172,6 +172,18 @@ export class Common {
           { hardfork: Hardfork.Berlin, ...opts }
         )
       }
+
+      if (chainParamsOrName === CustomChain.UniLayerTestnet) {
+        return Common.custom(
+          {
+            name: CustomChain.UniLayerTestnet,
+            chainId: 11989,
+            networkId: 11989,
+          },
+          // UniLayer Network has not implemented the Cancun hardfork yet
+          { hardfork: Hardfork.Shanghai, ...opts }
+        )
+      }
       throw new Error(`Custom chain ${chainParamsOrName} not supported`)
     }
   }

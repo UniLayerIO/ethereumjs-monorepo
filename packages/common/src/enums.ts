@@ -127,4 +127,11 @@ export enum CustomChain {
    * - [Documentation](https://community.optimism.io/docs/developers/tutorials.html)
    */
   OptimisticEthereum = 'optimistic-ethereum',
+
+  /**
+   * UniLayer Testnet - testnet for UniLayer Network, UTXO chain for full support of EVM
+   *
+   * - [Documentation](https://unilayer.io) - to be updated
+   */
+  UniLayerTestnet = 'unilayer-testnet',
 }

@@ -12,6 +12,7 @@
 - [PolygonMainnet](CustomChain.md#polygonmainnet)
 - [PolygonMumbai](CustomChain.md#polygonmumbai)
 - [xDaiChain](CustomChain.md#xdaichain)
+- [UniLayer Network/Testnet](CustomChain.md#unilayernetwork/testnet)
 
 ## Enumeration Members
 
@@ -96,3 +97,17 @@ xDai EVM sidechain with a native stable token
 #### Defined in
 
 [enums.ts:115](https://github.com/ethereumjs/ethereumjs-monorepo/blob/master/packages/common/src/enums.ts#L115)
+
+___
+
+### UniLayerNetwork/Testnet
+
+• **UniLayer Testnet** = ``"unilayer-testnet"``
+
+UniLayer Testnet - testnet for UniLayer Network, UTXO chain for full support of EVM
+
+- [Documentation](ttps://unilayer.io)
+
+#### Defined in
+
+[enums.ts:136](https://github.com/UniLayerTeam/ethereumjs-monorepo/blob/master/packages/common/src/enums.ts#L136)
