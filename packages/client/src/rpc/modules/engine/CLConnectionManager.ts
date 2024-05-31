@@ -1,9 +1,9 @@
 import { Hardfork } from '@ethereumjs/common'
 
-import { Event } from '../../../types'
-import { short, timeDiff } from '../../../util'
+import { Event } from '../../../types.js'
+import { short, timeDiff } from '../../../util/index.js'
 
-import type { Config } from '../../../config'
+import type { Config } from '../../../config.js'
 import type {
   ExecutionPayloadV1,
   ExecutionPayloadV2,
@@ -11,7 +11,7 @@ import type {
   ForkchoiceResponseV1,
   ForkchoiceStateV1,
   PayloadStatusV1,
-} from './types'
+} from './types.js'
 import type { Block } from '@ethereumjs/block'
 import type winston from 'winston'
 
@@ -55,7 +55,6 @@ type PayloadToPayloadStats = {
 }
 
 const logCLStatus = (logger: winston.Logger, logMsg: string, logLevel: logLevel) => {
-  //@ts-ignore
   logger[logLevel](enginePrefix + logMsg)
 }
 export class CLConnectionManager {
@@ -116,11 +115,11 @@ export class CLConnectionManager {
       maximumFractionDigits: 1,
     })
 
-    if (this.config.chainCommon.gteHardfork(Hardfork.MergeForkIdTransition) === true) {
+    if (this.config.chainCommon.gteHardfork(Hardfork.MergeForkIdTransition)) {
       this.start()
     } else {
       this.config.events.on(Event.CHAIN_UPDATED, () => {
-        if (this.config.chainCommon.gteHardfork(Hardfork.MergeForkIdTransition) === true) {
+        if (this.config.chainCommon.gteHardfork(Hardfork.MergeForkIdTransition)) {
           this.start()
         }
       })

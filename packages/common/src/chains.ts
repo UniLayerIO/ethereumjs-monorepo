@@ -23,6 +23,7 @@ export const chains: ChainsDict = {
       nonce: '0x0000000000000042',
       extraData: '0x11bbe8db4e347b4e8c937c1c8370e4b5ed33adb3db69cbdb7a38e1e50b1b82fa',
     },
+    depositContractAddress: '0x00000000219ab540356cBB839Cbe05303d7705Fa',
     hardforks: [
       {
         name: 'chainstart',
@@ -118,6 +119,10 @@ export const chains: ChainsDict = {
         block: null,
         timestamp: '1710338135',
         forkHash: '0x9f3d2254',
+      },
+      {
+        name: 'prague',
+        block: null,
       },
     ],
     bootstrapNodes: [
@@ -570,23 +575,23 @@ export const chains: ChainsDict = {
       'enrtree://AKA3AM6LPBYEUDMVNU3BSVQJ5AD45Y7YPOHJLEF6W26QOE4VTUDPE@all.holesky.ethdisco.net',
     ],
   },
-  kaustinen4: {
-    name: 'kaustinen4',
+  kaustinen6: {
+    name: 'kaustinen6',
     chainId: 69420,
     networkId: 69420,
-    defaultHardfork: 'prague',
+    defaultHardfork: 'osaka',
     consensus: {
       type: 'pos',
       algorithm: 'casper',
     },
-    comment: 'Verkle kaustinen testnet 3 (likely temporary, do not hard-wire into production code)',
+    comment: 'Verkle kaustinen testnet 6 (likely temporary, do not hard-wire into production code)',
     url: 'https://github.com/eth-clients/kaustinen/',
     genesis: {
       difficulty: '0x01',
       extraData: '0x',
       gasLimit: '0x17D7840',
       nonce: '0x0000000000001234',
-      timestamp: '0x65c20a28',
+      timestamp: '0x66190fbc',
     },
     hardforks: [
       {
@@ -644,9 +649,9 @@ export const chains: ChainsDict = {
         timestamp: '0',
       },
       {
-        name: 'prague',
+        name: 'osaka',
         block: null,
-        timestamp: '1707215340',
+        timestamp: '1712848500',
       },
     ],
     bootstrapNodes: [],

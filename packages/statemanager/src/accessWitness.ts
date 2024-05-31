@@ -1,8 +1,22 @@
-import { BIGINT_0, bytesToBigInt, bytesToHex, hexToBytes, toBytes } from '@ethereumjs/util'
-import { getKey, getStem } from '@ethereumjs/verkle'
+import { BIGINT_0, bytesToBigInt, bytesToHex, hexToBytes, intToBytes } from '@ethereumjs/util'
+import {
+  BALANCE_LEAF_KEY,
+  CODE_HASH_LEAF_KEY,
+  CODE_OFFSET,
+  CODE_SIZE_LEAF_KEY,
+  HEADER_STORAGE_OFFSET,
+  MAIN_STORAGE_OFFSET,
+  NONCE_LEAF_KEY,
+  VERKLE_NODE_WIDTH,
+  VERSION_LEAF_KEY,
+  getKey,
+  getStem,
+  getTreeIndicesForCodeChunk,
+} from '@ethereumjs/verkle'
 import debugDefault from 'debug'
 
 import type { Address, PrefixedHexString } from '@ethereumjs/util'
+import type { VerkleCrypto } from '@ethereumjs/verkle'
 
 const { debug: createDebugLogger } = debugDefault
 const debug = createDebugLogger('statemanager:verkle:aw')
@@ -10,17 +24,6 @@ const debug = createDebugLogger('statemanager:verkle:aw')
 /**
  * Tree key constants.
  */
-export const VERSION_LEAF_KEY = toBytes(0)
-export const BALANCE_LEAF_KEY = toBytes(1)
-export const NONCE_LEAF_KEY = toBytes(2)
-export const CODE_KECCAK_LEAF_KEY = toBytes(3)
-export const CODE_SIZE_LEAF_KEY = toBytes(4)
-
-export const HEADER_STORAGE_OFFSET = 64
-export const CODE_OFFSET = 128
-export const VERKLE_NODE_WIDTH = 256
-export const MAIN_STORAGE_OFFSET = BigInt(256) ** BigInt(31)
-
 const WitnessBranchReadCost = BigInt(1900)
 const WitnessChunkReadCost = BigInt(200)
 const WitnessBranchWriteCost = BigInt(3000)
@@ -72,13 +75,18 @@ export type AccessedStateWithAddress = AccessedState & {
 export class AccessWitness {
   stems: Map<PrefixedHexString, StemAccessEvent & StemMeta>
   chunks: Map<PrefixedHexString, ChunkAccessEvent>
-
+  verkleCrypto: VerkleCrypto
   constructor(
     opts: {
+      verkleCrypto?: VerkleCrypto
       stems?: Map<PrefixedHexString, StemAccessEvent & StemMeta>
       chunks?: Map<PrefixedHexString, ChunkAccessEvent>
     } = {}
   ) {
+    if (opts.verkleCrypto === undefined) {
+      throw new Error('verkle crypto required')
+    }
+    this.verkleCrypto = opts.verkleCrypto
     this.stems = opts.stems ?? new Map<PrefixedHexString, StemAccessEvent & StemMeta>()
     this.chunks = opts.chunks ?? new Map<PrefixedHexString, ChunkAccessEvent>()
   }
@@ -89,7 +97,7 @@ export class AccessWitness {
     gas += this.touchAddressOnReadAndComputeGas(address, 0, VERSION_LEAF_KEY)
     gas += this.touchAddressOnReadAndComputeGas(address, 0, BALANCE_LEAF_KEY)
     gas += this.touchAddressOnReadAndComputeGas(address, 0, CODE_SIZE_LEAF_KEY)
-    gas += this.touchAddressOnReadAndComputeGas(address, 0, CODE_KECCAK_LEAF_KEY)
+    gas += this.touchAddressOnReadAndComputeGas(address, 0, CODE_HASH_LEAF_KEY)
     gas += this.touchAddressOnReadAndComputeGas(address, 0, NONCE_LEAF_KEY)
 
     return gas
@@ -113,18 +121,11 @@ export class AccessWitness {
     return gas
   }
 
-  touchAndChargeContractCreateInit(
-    address: Address,
-    { sendsValue }: { sendsValue?: boolean } = {}
-  ): bigint {
+  touchAndChargeContractCreateInit(address: Address): bigint {
     let gas = BIGINT_0
 
     gas += this.touchAddressOnWriteAndComputeGas(address, 0, VERSION_LEAF_KEY)
     gas += this.touchAddressOnWriteAndComputeGas(address, 0, NONCE_LEAF_KEY)
-    gas += this.touchAddressOnWriteAndComputeGas(address, 0, CODE_KECCAK_LEAF_KEY)
-    if (sendsValue === true) {
-      gas += this.touchAddressOnWriteAndComputeGas(address, 0, BALANCE_LEAF_KEY)
-    }
 
     return gas
   }
@@ -135,7 +136,7 @@ export class AccessWitness {
     gas += this.touchAddressOnWriteAndComputeGas(address, 0, VERSION_LEAF_KEY)
     gas += this.touchAddressOnWriteAndComputeGas(address, 0, BALANCE_LEAF_KEY)
     gas += this.touchAddressOnWriteAndComputeGas(address, 0, CODE_SIZE_LEAF_KEY)
-    gas += this.touchAddressOnWriteAndComputeGas(address, 0, CODE_KECCAK_LEAF_KEY)
+    gas += this.touchAddressOnWriteAndComputeGas(address, 0, CODE_HASH_LEAF_KEY)
     gas += this.touchAddressOnWriteAndComputeGas(address, 0, NONCE_LEAF_KEY)
 
     return gas
@@ -146,7 +147,7 @@ export class AccessWitness {
 
     gas += this.touchAddressOnReadAndComputeGas(origin, 0, VERSION_LEAF_KEY)
     gas += this.touchAddressOnReadAndComputeGas(origin, 0, CODE_SIZE_LEAF_KEY)
-    gas += this.touchAddressOnReadAndComputeGas(origin, 0, CODE_KECCAK_LEAF_KEY)
+    gas += this.touchAddressOnReadAndComputeGas(origin, 0, CODE_HASH_LEAF_KEY)
 
     gas += this.touchAddressOnWriteAndComputeGas(origin, 0, NONCE_LEAF_KEY)
     gas += this.touchAddressOnWriteAndComputeGas(origin, 0, BALANCE_LEAF_KEY)
@@ -154,12 +155,12 @@ export class AccessWitness {
     return gas
   }
 
-  touchTxExistingAndComputeGas(target: Address, { sendsValue }: { sendsValue?: boolean } = {}) {
+  touchTxTargetAndComputeGas(target: Address, { sendsValue }: { sendsValue?: boolean } = {}) {
     let gas = BIGINT_0
 
     gas += this.touchAddressOnReadAndComputeGas(target, 0, VERSION_LEAF_KEY)
     gas += this.touchAddressOnReadAndComputeGas(target, 0, CODE_SIZE_LEAF_KEY)
-    gas += this.touchAddressOnReadAndComputeGas(target, 0, CODE_KECCAK_LEAF_KEY)
+    gas += this.touchAddressOnReadAndComputeGas(target, 0, CODE_HASH_LEAF_KEY)
     gas += this.touchAddressOnReadAndComputeGas(target, 0, NONCE_LEAF_KEY)
 
     if (sendsValue === true) {
@@ -171,7 +172,7 @@ export class AccessWitness {
     return gas
   }
 
-  touchCodeChunksRangeOnReadAndChargeGas(contact: Address, startPc: number, endPc: number) {
+  touchCodeChunksRangeOnReadAndChargeGas(contact: Address, startPc: number, endPc: number): bigint {
     let gas = BIGINT_0
     for (let chunkNum = Math.floor(startPc / 31); chunkNum <= Math.floor(endPc / 31); chunkNum++) {
       const { treeIndex, subIndex } = getTreeIndicesForCodeChunk(chunkNum)
@@ -180,7 +181,11 @@ export class AccessWitness {
     return gas
   }
 
-  touchCodeChunksRangeOnWriteAndChargeGas(contact: Address, startPc: number, endPc: number) {
+  touchCodeChunksRangeOnWriteAndChargeGas(
+    contact: Address,
+    startPc: number,
+    endPc: number
+  ): bigint {
     let gas = BIGINT_0
     for (let chunkNum = Math.floor(startPc / 31); chunkNum <= Math.floor(endPc / 31); chunkNum++) {
       const { treeIndex, subIndex } = getTreeIndicesForCodeChunk(chunkNum)
@@ -258,7 +263,7 @@ export class AccessWitness {
     // i.e. no fill cost is charged right now
     const chunkFill = false
 
-    const accessedStemKey = getStem(address, treeIndex)
+    const accessedStemKey = getStem(this.verkleCrypto, address, treeIndex)
     const accessedStemHex = bytesToHex(accessedStemKey)
     let accessedStem = this.stems.get(accessedStemHex)
     if (accessedStem === undefined) {
@@ -267,7 +272,10 @@ export class AccessWitness {
       this.stems.set(accessedStemHex, accessedStem)
     }
 
-    const accessedChunkKey = getKey(accessedStemKey, toBytes(subIndex))
+    const accessedChunkKey = getKey(
+      accessedStemKey,
+      typeof subIndex === 'number' ? intToBytes(subIndex) : subIndex
+    )
     const accessedChunkKeyHex = bytesToHex(accessedChunkKey)
     let accessedChunk = this.chunks.get(accessedChunkKeyHex)
     if (accessedChunk === undefined) {
@@ -298,12 +306,12 @@ export class AccessWitness {
 
   /**Create a shallow copy, could clone some caches in future for optimizations */
   shallowCopy(): AccessWitness {
-    return new AccessWitness()
+    return new AccessWitness({ verkleCrypto: this.verkleCrypto })
   }
 
   merge(accessWitness: AccessWitness): void {
     for (const [chunkKey, chunkValue] of accessWitness.chunks.entries()) {
-      const stemKey = chunkKey.slice(0, chunkKey.length - 2)
+      const stemKey = chunkKey.slice(0, chunkKey.length - 2) as PrefixedHexString
       const stem = accessWitness.stems.get(stemKey)
       if (stem === undefined) {
         throw Error(`Internal error: missing stem for the chunkKey=${chunkKey}`)
@@ -329,7 +337,7 @@ export class AccessWitness {
   *rawAccesses(): Generator<RawAccessedState> {
     for (const chunkKey of this.chunks.keys()) {
       // drop the last byte
-      const stemKey = chunkKey.slice(0, chunkKey.length - 2)
+      const stemKey = chunkKey.slice(0, chunkKey.length - 2) as PrefixedHexString
       const stem = this.stems.get(stemKey)
       if (stem === undefined) {
         throw Error(`Internal error: missing stem for the chunkKey=${chunkKey}`)
@@ -348,29 +356,6 @@ export class AccessWitness {
       yield { ...accessedState, address, chunkKey }
     }
   }
-}
-
-export function getTreeIndexesForStorageSlot(storageKey: bigint): {
-  treeIndex: bigint
-  subIndex: number
-} {
-  let position: bigint
-  if (storageKey < CODE_OFFSET - HEADER_STORAGE_OFFSET) {
-    position = BigInt(HEADER_STORAGE_OFFSET) + storageKey
-  } else {
-    position = MAIN_STORAGE_OFFSET + storageKey
-  }
-
-  const treeIndex = position / BigInt(VERKLE_NODE_WIDTH)
-  const subIndex = Number(position % BigInt(VERKLE_NODE_WIDTH))
-
-  return { treeIndex, subIndex }
-}
-
-export function getTreeIndicesForCodeChunk(chunkId: number) {
-  const treeIndex = Math.floor((CODE_OFFSET + chunkId) / VERKLE_NODE_WIDTH)
-  const subIndex = (CODE_OFFSET + chunkId) % VERKLE_NODE_WIDTH
-  return { treeIndex, subIndex }
 }
 
 export function decodeAccessedState(treeIndex: number | bigint, chunkIndex: number): AccessedState {
@@ -408,7 +393,7 @@ export function decodeAccessedState(treeIndex: number | bigint, chunkIndex: numb
   }
 }
 
-export function decodeValue(type: AccessedStateType, value: string | null): string {
+export function decodeValue(type: AccessedStateType, value: PrefixedHexString | null): string {
   if (value === null) {
     return ''
   }

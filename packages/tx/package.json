@@ -52,7 +52,7 @@
     "lint:fix": "../../config/cli/lint-fix.sh",
     "prepublishOnly": "../../config/cli/prepublish.sh",
     "test": "npm run test:node && npm run test:browser",
-    "test:browser": "npx vitest run --config=./vitest.config.browser.ts --browser.name=chrome --browser.headless",
+    "test:browser": "npx vitest run --config=./vitest.browser.config.mts",
     "test:node": "npx vitest run",
     "tsc": "../../config/cli/ts-compile.sh"
   },
@@ -65,7 +65,7 @@
   "devDependencies": {
     "@types/minimist": "^1.2.0",
     "@types/node-dir": "^0.0.34",
-    "kzg-wasm": "^0.3.1",
+    "kzg-wasm": "^0.4.0",
     "minimist": "^1.2.0",
     "node-dir": "^0.1.16"
   },

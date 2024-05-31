@@ -1,15 +1,20 @@
 import { Hardfork } from '@ethereumjs/common'
 import { BIGINT_0 } from '@ethereumjs/util'
 
-import { FlowControl } from '../net/protocol'
-import { Event } from '../types'
-import { wait } from '../util/wait'
+import { FlowControl } from '../net/protocol/index.js'
+import { Event } from '../types.js'
+import { wait } from '../util/wait.js'
 
-import type { Chain } from '../blockchain'
-import type { Config } from '../config'
-import type { Peer } from '../net/peer/peer'
-import type { PeerPool } from '../net/peerpool'
-import type { AccountFetcher, BlockFetcher, HeaderFetcher, ReverseBlockFetcher } from './fetcher'
+import type { Chain } from '../blockchain/index.js'
+import type { Config } from '../config.js'
+import type { Peer } from '../net/peer/peer.js'
+import type { PeerPool } from '../net/peerpool.js'
+import type {
+  AccountFetcher,
+  BlockFetcher,
+  HeaderFetcher,
+  ReverseBlockFetcher,
+} from './fetcher/index.js'
 
 export interface SynchronizerOptions {
   /* Config */
@@ -111,7 +116,7 @@ export abstract class Synchronizer {
    * Start synchronization
    */
   async start(): Promise<void | boolean> {
-    if (this.running || this.config.chainCommon.gteHardfork(Hardfork.Paris) === true) {
+    if (this.running || this.config.chainCommon.gteHardfork(Hardfork.Paris)) {
       return false
     }
     this.running = true
@@ -124,7 +129,7 @@ export abstract class Synchronizer {
     const timeout = setTimeout(() => {
       this.forceSync = true
     }, this.interval * 30)
-    while (this.running && this.config.chainCommon.gteHardfork(Hardfork.Paris) === false) {
+    while (this.running && !this.config.chainCommon.gteHardfork(Hardfork.Paris)) {
       try {
         await this.sync()
       } catch (error: any) {

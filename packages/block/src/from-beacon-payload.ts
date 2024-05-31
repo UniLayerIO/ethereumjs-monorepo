@@ -4,33 +4,51 @@ import type { ExecutionPayload, VerkleExecutionWitness } from './types.js'
 import type { PrefixedHexString } from '@ethereumjs/util'
 
 type BeaconWithdrawal = {
-  index: string
-  validator_index: string
-  address: string
-  amount: string
+  index: PrefixedHexString
+  validator_index: PrefixedHexString
+  address: PrefixedHexString
+  amount: PrefixedHexString
+}
+
+type BeaconDepositRequest = {
+  pubkey: PrefixedHexString
+  withdrawal_credentials: PrefixedHexString
+  amount: PrefixedHexString
+  signature: PrefixedHexString
+  index: PrefixedHexString
+}
+
+type BeaconWithdrawalRequest = {
+  source_address: PrefixedHexString
+  validator_public_key: PrefixedHexString
+  amount: PrefixedHexString
 }
 
 // Payload json that one gets using the beacon apis
 // curl localhost:5052/eth/v2/beacon/blocks/56610 | jq .data.message.body.execution_payload
 export type BeaconPayloadJson = {
-  parent_hash: string
-  fee_recipient: string
-  state_root: string
-  receipts_root: string
-  logs_bloom: string
-  prev_randao: string
-  block_number: string
-  gas_limit: string
-  gas_used: string
-  timestamp: string
-  extra_data: string
-  base_fee_per_gas: string
-  block_hash: string
-  transactions: string[]
+  parent_hash: PrefixedHexString
+  fee_recipient: PrefixedHexString
+  state_root: PrefixedHexString
+  receipts_root: PrefixedHexString
+  logs_bloom: PrefixedHexString
+  prev_randao: PrefixedHexString
+  block_number: PrefixedHexString
+  gas_limit: PrefixedHexString
+  gas_used: PrefixedHexString
+  timestamp: PrefixedHexString
+  extra_data: PrefixedHexString
+  base_fee_per_gas: PrefixedHexString
+  block_hash: PrefixedHexString
+  transactions: PrefixedHexString[]
   withdrawals?: BeaconWithdrawal[]
-  blob_gas_used?: string
-  excess_blob_gas?: string
-  parent_beacon_block_root?: string
+  blob_gas_used?: PrefixedHexString
+  excess_blob_gas?: PrefixedHexString
+  parent_beacon_block_root?: PrefixedHexString
+  // requests data
+  deposit_requests?: BeaconDepositRequest[]
+  withdrawal_requests?: BeaconWithdrawalRequest[]
+
   // the casing of VerkleExecutionWitness remains same camel case for now
   execution_witness?: VerkleExecutionWitness
 }
@@ -128,6 +146,25 @@ export function executionPayloadFromBeaconPayload(payload: BeaconPayloadJson): E
   if (payload.parent_beacon_block_root !== undefined && payload.parent_beacon_block_root !== null) {
     executionPayload.parentBeaconBlockRoot = payload.parent_beacon_block_root
   }
+
+  // requests
+  if (payload.deposit_requests !== undefined && payload.deposit_requests !== null) {
+    executionPayload.depositRequests = payload.deposit_requests.map((breq) => ({
+      pubkey: breq.pubkey,
+      withdrawalCredentials: breq.withdrawal_credentials,
+      amount: breq.amount,
+      signature: breq.signature,
+      index: breq.index,
+    }))
+  }
+  if (payload.withdrawal_requests !== undefined && payload.withdrawal_requests !== null) {
+    executionPayload.withdrawalRequests = payload.withdrawal_requests.map((breq) => ({
+      sourceAddress: breq.source_address,
+      validatorPublicKey: breq.validator_public_key,
+      amount: breq.amount,
+    }))
+  }
+
   if (payload.execution_witness !== undefined && payload.execution_witness !== null) {
     // the casing structure in payload could be camel case or snake depending upon the CL
     executionPayload.executionWitness =

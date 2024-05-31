@@ -1,5 +1,5 @@
 import type { Chain, ConsensusAlgorithm, ConsensusType, Hardfork } from './enums.js'
-import type { BigIntLike, ECDSASignature, Kzg } from '@ethereumjs/util'
+import type { BigIntLike, ECDSASignature, Kzg, PrefixedHexString } from '@ethereumjs/util'
 
 export interface ChainName {
   [chainId: string]: string
@@ -38,16 +38,18 @@ export interface ChainConfig {
   bootstrapNodes: BootstrapNodeConfig[]
   dnsNetworks?: string[]
   consensus: ConsensusConfig
+  depositContractAddress?: PrefixedHexString
 }
 
+// TODO: Remove the string type and only keep PrefixedHexString
 export interface GenesisBlockConfig {
-  timestamp?: string
-  gasLimit: number | string
-  difficulty: number | string
-  nonce: string
-  extraData: string
-  baseFeePerGas?: string
-  excessBlobGas?: string
+  timestamp?: PrefixedHexString | string
+  gasLimit: number | PrefixedHexString | string
+  difficulty: number | PrefixedHexString | string
+  nonce: PrefixedHexString | string
+  extraData: PrefixedHexString | string
+  baseFeePerGas?: PrefixedHexString | string
+  excessBlobGas?: PrefixedHexString | string
 }
 
 export interface HardforkTransitionConfig {
@@ -55,7 +57,7 @@ export interface HardforkTransitionConfig {
   block: number | null // null is used for hardforks that should not be applied -- since `undefined` isn't a valid value in JSON
   ttd?: bigint | string
   timestamp?: number | string
-  forkHash?: string | null
+  forkHash?: PrefixedHexString | null
 }
 
 export interface BootstrapNodeConfig {
@@ -96,7 +98,11 @@ interface BaseOpts {
   hardfork?: string | Hardfork
   /**
    * Selected EIPs which can be activated, please use an array for instantiation
-   * (e.g. `eips: [ 1559, 3860 ]`)
+   * (e.g. `eips: [ 2537, ]`)
+   *
+   * Currently supported:
+   *
+   * - [EIP-2537](https://eips.ethereum.org/EIPS/eip-2537) - BLS12-381 precompiles
    */
   eips?: number[]
   /**
@@ -153,10 +159,11 @@ export interface GethConfigOpts extends BaseOpts {
   mergeForkIdPostMerge?: boolean
 }
 
+// TODO: Deprecate the string type and only keep BigIntLike
 export interface HardforkByOpts {
-  blockNumber?: BigIntLike
-  timestamp?: BigIntLike
-  td?: BigIntLike
+  blockNumber?: BigIntLike | string
+  timestamp?: BigIntLike | string
+  td?: BigIntLike | string
 }
 
 type ParamDict = {

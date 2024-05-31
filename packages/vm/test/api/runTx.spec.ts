@@ -25,7 +25,7 @@ import { VM } from '../../src/vm'
 
 import { createAccount, getTransaction, setBalance } from './utils'
 
-import type { FeeMarketEIP1559TxData } from '@ethereumjs/tx'
+import type { FeeMarketEIP1559TxData, TypedTxData } from '@ethereumjs/tx'
 
 const TRANSACTION_TYPES = [
   {
@@ -221,7 +221,7 @@ describe('runTx() -> successful API parameter usage', async () => {
           type: txType.type,
           maxPriorityFeePerGas: 50,
           maxFeePerGas: 50,
-        },
+        } as TypedTxData,
         { common }
       )
       const tx = unsignedTx.sign(privateKey)
@@ -254,10 +254,9 @@ describe('runTx() -> successful API parameter usage', async () => {
             ? tx.maxPriorityFeePerGas
             : tx.maxFeePerGas - baseFee
           : tx.gasPrice - baseFee
-      const expectedCoinbaseBalance =
-        common.isActivatedEIP(1559) === true
-          ? result.totalGasSpent * inclusionFeePerGas
-          : result.amountSpent
+      const expectedCoinbaseBalance = common.isActivatedEIP(1559)
+        ? result.totalGasSpent * inclusionFeePerGas
+        : result.amountSpent
 
       assert.equal(
         coinbaseAccount!.balance,
@@ -466,8 +465,8 @@ describe('runTx() -> runtime behavior', () => {
       await vm.stateManager.putContractCode(address, code)
       await vm.stateManager.putContractStorage(
         address,
-        hexToBytes('0x' + '00'.repeat(32)),
-        hexToBytes('0x' + '00'.repeat(31) + '01')
+        hexToBytes(`0x${'00'.repeat(32)}`),
+        hexToBytes(`0x${'00'.repeat(31)}01`)
       )
       const txParams: any = {
         nonce: '0x00',
@@ -621,7 +620,7 @@ describe('runTx() -> API return values', () => {
 
       assert.deepEqual(
         res.bloom.bitvector,
-        hexToBytes('0x' + '00'.repeat(256)),
+        hexToBytes(`0x${'00'.repeat(256)}`),
         `runTx result -> bloom.bitvector -> should be empty (${txType.name})`
       )
       assert.equal(
@@ -661,7 +660,7 @@ describe('runTx() -> consensus bugs', () => {
       s: '0x4a16b7d119cdc34e454fa2cc0a152904f7deb23e2a5f2966f70981361c853874',
       v: '0x26',
       value: '0x0',
-    }
+    } as TypedTxData
     const beforeBalance = BigInt(149123788000000000)
     const afterBalance = BigInt(129033829000000000)
 
@@ -881,7 +880,7 @@ describe('EIP 4844 transaction tests', () => {
   it('should work', async () => {
     const kzg = await loadKZG()
 
-    const genesisJson = require('../../../block/test/testdata/4844-hardfork.json')
+    const genesisJson = await import('../../../block/test/testdata/4844-hardfork.json')
     const common = Common.fromGethGenesis(genesisJson, {
       chain: 'customChain',
       hardfork: Hardfork.Cancun,

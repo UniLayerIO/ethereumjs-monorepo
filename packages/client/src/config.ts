@@ -3,16 +3,16 @@ import { genPrivateKey } from '@ethereumjs/devp2p'
 import { type Address, BIGINT_0, BIGINT_1, BIGINT_2, BIGINT_256 } from '@ethereumjs/util'
 import { Level } from 'level'
 
-import { getLogger } from './logging'
-import { RlpxServer } from './net/server'
-import { Event, EventBus } from './types'
-import { isBrowser, short } from './util'
+import { getLogger } from './logging.js'
+import { RlpxServer } from './net/server/index.js'
+import { Event, EventBus } from './types.js'
+import { isBrowser, short } from './util/index.js'
 
-import type { Logger } from './logging'
-import type { EventBusType, MultiaddrLike } from './types'
+import type { Logger } from './logging.js'
+import type { EventBusType, MultiaddrLike, PrometheusMetrics } from './types.js'
 import type { BlockHeader } from '@ethereumjs/block'
 import type { VM, VMProfilerOpts } from '@ethereumjs/vm'
-import type { Multiaddr } from 'multiaddr'
+import type { Multiaddr } from '@multiformats/multiaddr'
 
 export enum DataDirectory {
   Chain = 'chain',
@@ -337,7 +337,13 @@ export interface ConfigOptions {
    */
   statelessVerkle?: boolean
   startExecution?: boolean
-  ignoreStatelessInvalidExecs?: boolean | string
+  ignoreStatelessInvalidExecs?: boolean
+  initialVerkleStateRoot?: Uint8Array
+
+  /**
+   * Enables Prometheus Metrics that can be collected for monitoring client health
+   */
+  prometheusMetrics?: PrometheusMetrics
 }
 
 export class Config {
@@ -445,7 +451,8 @@ export class Config {
 
   public readonly statelessVerkle: boolean
   public readonly startExecution: boolean
-  public readonly ignoreStatelessInvalidExecs: boolean | string
+  public readonly ignoreStatelessInvalidExecs: boolean
+  public readonly initialVerkleStateRoot: Uint8Array
 
   public synchronized: boolean
   public lastsyncronized?: boolean
@@ -460,6 +467,8 @@ export class Config {
   public readonly execCommon: Common
 
   public readonly server: RlpxServer | undefined = undefined
+
+  public readonly metrics: PrometheusMetrics | undefined
 
   constructor(options: ConfigOptions = {}) {
     this.events = new EventBus() as EventBusType
@@ -536,6 +545,9 @@ export class Config {
     this.startExecution = options.startExecution ?? false
     this.ignoreStatelessInvalidExecs = options.ignoreStatelessInvalidExecs ?? false
 
+    this.metrics = options.prometheusMetrics
+    this.initialVerkleStateRoot = options.initialVerkleStateRoot ?? new Uint8Array()
+
     // Start it off as synchronized if this is configured to mine or as single node
     this.synchronized = this.isSingleNode ?? this.mine
     this.lastSyncDate = 0
@@ -548,7 +560,7 @@ export class Config {
     this.discDns = this.getDnsDiscovery(options.discDns)
     this.discV4 = options.discV4 ?? true
 
-    this.logger = options.logger ?? getLogger({ loglevel: 'error' })
+    this.logger = options.logger ?? getLogger({ logLevel: 'error' })
 
     this.logger.info(`Sync Mode ${this.syncmode}`)
     if (this.syncmode !== SyncMode.None) {
@@ -635,6 +647,10 @@ export class Config {
   getNetworkDirectory(): string {
     const networkDirName = this.chainCommon.chainName()
     return `${this.datadir}/${networkDirName}`
+  }
+
+  getInvalidPayloadsDir(): string {
+    return `${this.getNetworkDirectory()}/invalidPayloads`
   }
 
   /**

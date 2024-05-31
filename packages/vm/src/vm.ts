@@ -59,7 +59,9 @@ export class VM {
    * set to public due to implementation internals
    * @hidden
    */
-  public readonly _emit: (topic: string, data: any) => Promise<void>
+  public _emit(topic: keyof VMEvents, data: any): Promise<void> {
+    return new Promise((resolve) => this.events.emit(topic, data, resolve))
+  }
 
   /**
    * VM is run in DEBUG mode (default: false)
@@ -167,10 +169,6 @@ export class VM {
     this._opts = opts
 
     this._setHardfork = opts.setHardfork ?? false
-
-    this._emit = async (topic: string, data: any): Promise<void> => {
-      return new Promise((resolve) => this.events.emit(topic as keyof VMEvents, data, resolve))
-    }
 
     // Skip DEBUG calls unless 'ethjs' included in environmental DEBUG variables
     // Additional window check is to prevent vite browser bundling (and potentially other) to break
@@ -291,7 +289,7 @@ export class VM {
 
     // Order of columns to report (see `EVMPerformanceLogOutput` type)
 
-    const colOrder = [
+    const colOrder: (keyof EVMPerformanceLogOutput)[] = [
       'tag',
       'calls',
       'avgTimePerCall',
@@ -335,11 +333,9 @@ export class VM {
       let ins = 0
       colLength[ins] = Math.max(colLength[ins] ?? 0, strLen(colNames[ins]))
       for (const key of colOrder) {
-        // @ts-ignore
         if (entry[key] !== undefined) {
           // If entry is available, max out the current column length (this will be the longest string of this column)
-          //@ts-ignore
-          colLength[ins] = Math.max(colLength[ins] ?? 0, strLen(entry[key]))
+          colLength[ins] = Math.max(colLength[ins] ?? 0, strLen(entry[key]!))
           ins++
           // In this switch statement update the total calls / time / gas used
           switch (key) {
@@ -408,10 +404,8 @@ export class VM {
       let str = ''
       let i = 0
       for (const key of colOrder) {
-        //@ts-ignore
         if (entry[key] !== undefined) {
-          //@ts-ignore
-          str += '|' + padStr(entry[key], colLength[i])
+          str += '|' + padStr(entry[key]!, colLength[i])
           i++
         }
       }

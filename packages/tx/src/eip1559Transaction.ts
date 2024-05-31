@@ -154,7 +154,7 @@ export class FeeMarketEIP1559Transaction extends BaseTransaction<TransactionType
     this.common = this._getCommon(opts.common, chainId)
     this.chainId = this.common.chainId()
 
-    if (this.common.isActivatedEIP(1559) === false) {
+    if (!this.common.isActivatedEIP(1559)) {
       throw new Error('EIP-1559 not enabled on Common')
     }
     this.activeCapabilities = this.activeCapabilities.concat([1559, 2718, 2930])
@@ -166,10 +166,8 @@ export class FeeMarketEIP1559Transaction extends BaseTransaction<TransactionType
     // Verify the access list format.
     AccessLists.verifyAccessList(this.accessList)
 
-    this.maxFeePerGas = bytesToBigInt(toBytes(maxFeePerGas === '' ? '0x' : maxFeePerGas))
-    this.maxPriorityFeePerGas = bytesToBigInt(
-      toBytes(maxPriorityFeePerGas === '' ? '0x' : maxPriorityFeePerGas)
-    )
+    this.maxFeePerGas = bytesToBigInt(toBytes(maxFeePerGas))
+    this.maxPriorityFeePerGas = bytesToBigInt(toBytes(maxPriorityFeePerGas))
 
     this._validateCannotExceedMaxInteger({
       maxFeePerGas: this.maxFeePerGas,

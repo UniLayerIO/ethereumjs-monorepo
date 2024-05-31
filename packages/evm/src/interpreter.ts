@@ -25,7 +25,7 @@ import type { AsyncOpHandler, Opcode, OpcodeMapEntry } from './opcodes/index.js'
 import type { Block, Blockchain, EVMProfilerOpts, EVMResult, Log } from './types.js'
 import type { Common, EVMStateManagerInterface } from '@ethereumjs/common'
 import type { AccessWitness, StatelessVerkleStateManager } from '@ethereumjs/statemanager'
-import type { Address } from '@ethereumjs/util'
+import type { Address, PrefixedHexString } from '@ethereumjs/util'
 const { debug: createDebugLogger } = debugDefault
 
 const debugGas = createDebugLogger('evm:gas')
@@ -43,12 +43,12 @@ export interface RunResult {
   /**
    * A set of accounts to selfdestruct
    */
-  selfdestruct: Set<string>
+  selfdestruct: Set<PrefixedHexString>
 
   /**
    * A map which tracks which addresses were created (used in EIP 6780)
    */
-  createdAddresses?: Set<string>
+  createdAddresses?: Set<PrefixedHexString>
 }
 
 export interface Env {
@@ -79,7 +79,6 @@ export interface RunState {
   memoryWordCount: bigint
   highestMemCost: bigint
   stack: Stack
-  returnStack: Stack
   code: Uint8Array
   shouldDoJumpAnalysis: boolean
   validJumps: Uint8Array // array of values where validJumps[index] has value 0 (default), 1 (jumpdest), 2 (beginsub)
@@ -105,7 +104,6 @@ export interface InterpreterStep {
   gasRefund: bigint
   stateManager: EVMStateManagerInterface
   stack: bigint[]
-  returnStack: bigint[]
   pc: number
   depth: number
   opcode: {
@@ -164,7 +162,6 @@ export class Interpreter {
       memoryWordCount: BIGINT_0,
       highestMemCost: BIGINT_0,
       stack: new Stack(),
-      returnStack: new Stack(1023), // 1023 return stack height limit per EIP 2315 spec
       code: new Uint8Array(0),
       validJumps: Uint8Array.from([]),
       cachedPushes: {},
@@ -273,11 +270,11 @@ export class Interpreter {
         this._runState.env.chargeCodeAccesses === true
       ) {
         const contract = this._runState.interpreter.getAddress()
+
         if (
-          !(this._runState.stateManager as StatelessVerkleStateManager).checkChunkWitnessPresent(
-            contract,
-            programCounter
-          )
+          !(await (
+            this._runState.stateManager as StatelessVerkleStateManager
+          ).checkChunkWitnessPresent(contract, programCounter))
         ) {
           throw Error(`Invalid witness with missing codeChunk for pc=${programCounter}`)
         }
@@ -413,7 +410,6 @@ export class Interpreter {
         isAsync: opcode.isAsync,
       },
       stack: this._runState.stack.getStack(),
-      returnStack: this._runState.returnStack.getStack(),
       depth: this._env.depth,
       address: this._env.address,
       account: this._env.contract,
@@ -493,9 +489,6 @@ export class Interpreter {
         } else if (opcode === 0x5b) {
           // Define a JUMPDEST as a 1 in the valid jumps array
           jumps[i] = 1
-        } else if (opcode === 0x5c) {
-          // Define a BEGINSUB as a 2 in the valid jumps array
-          jumps[i] = 2
         }
       }
     }
@@ -853,6 +846,7 @@ export class Interpreter {
       isStatic: this._env.isStatic,
       depth: this._env.depth + 1,
       blobVersionedHashes: this._env.blobVersionedHashes,
+      accessWitness: this._env.accessWitness,
     })
 
     return this._baseCall(msg)
@@ -877,6 +871,7 @@ export class Interpreter {
       depth: this._env.depth + 1,
       authcallOrigin: this._env.address,
       blobVersionedHashes: this._env.blobVersionedHashes,
+      accessWitness: this._env.accessWitness,
     })
 
     return this._baseCall(msg)
@@ -901,6 +896,7 @@ export class Interpreter {
       isStatic: this._env.isStatic,
       depth: this._env.depth + 1,
       blobVersionedHashes: this._env.blobVersionedHashes,
+      accessWitness: this._env.accessWitness,
     })
 
     return this._baseCall(msg)
@@ -926,6 +922,7 @@ export class Interpreter {
       isStatic: true,
       depth: this._env.depth + 1,
       blobVersionedHashes: this._env.blobVersionedHashes,
+      accessWitness: this._env.accessWitness,
     })
 
     return this._baseCall(msg)
@@ -952,6 +949,7 @@ export class Interpreter {
       delegatecall: true,
       depth: this._env.depth + 1,
       blobVersionedHashes: this._env.blobVersionedHashes,
+      accessWitness: this._env.accessWitness,
     })
 
     return this._baseCall(msg)
@@ -964,7 +962,7 @@ export class Interpreter {
 
     // empty the return data Uint8Array
     this._runState.returnBytes = new Uint8Array(0)
-    let createdAddresses: Set<string>
+    let createdAddresses: Set<PrefixedHexString>
     if (this.common.isActivatedEIP(6780)) {
       createdAddresses = new Set(this._result.createdAddresses)
       msg.createdAddresses = createdAddresses
@@ -1075,7 +1073,7 @@ export class Interpreter {
       accessWitness: this._env.accessWitness,
     })
 
-    let createdAddresses: Set<string>
+    let createdAddresses: Set<PrefixedHexString>
     if (this.common.isActivatedEIP(6780)) {
       createdAddresses = new Set(this._result.createdAddresses)
       message.createdAddresses = createdAddresses

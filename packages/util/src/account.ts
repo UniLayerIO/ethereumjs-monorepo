@@ -19,7 +19,7 @@ import { BIGINT_0, KECCAK256_NULL, KECCAK256_RLP } from './constants.js'
 import { assertIsBytes, assertIsHexString, assertIsString } from './helpers.js'
 import { stripHexPrefix } from './internal.js'
 
-import type { BigIntLike, BytesLike } from './types.js'
+import type { BigIntLike, BytesLike, PrefixedHexString } from './types.js'
 
 export interface AccountData {
   nonce?: BigIntLike
@@ -84,7 +84,7 @@ export class Account {
     if (this._balance !== null) {
       return this._balance
     } else {
-      throw Error(`bonce=${this._balance} not loaded`)
+      throw Error(`balance=${this._balance} not loaded`)
     }
   }
   set balance(_balance: bigint) {
@@ -378,7 +378,13 @@ export class Account {
    * Returns a `Boolean` determining if the account is a contract.
    */
   isContract(): boolean {
-    return !equalsBytes(this.codeHash, KECCAK256_NULL)
+    if (this._codeHash === null && this._codeSize === null) {
+      throw Error(`Insufficient data as codeHash=null and codeSize=null`)
+    }
+    return (
+      (this._codeHash !== null && !equalsBytes(this._codeHash, KECCAK256_NULL)) ||
+      (this._codeSize !== null && this._codeSize !== 0)
+    )
   }
 
   /**
@@ -387,6 +393,15 @@ export class Account {
    * "An account is considered empty when it has no code and zero nonce and zero balance."
    */
   isEmpty(): boolean {
+    // helpful for determination in partial accounts
+    if (
+      (this._balance !== null && this.balance !== BIGINT_0) ||
+      (this._nonce === null && this.nonce !== BIGINT_0) ||
+      (this._codeHash !== null && !equalsBytes(this.codeHash, KECCAK256_NULL))
+    ) {
+      return false
+    }
+
     return (
       this.balance === BIGINT_0 &&
       this.nonce === BIGINT_0 &&
@@ -398,7 +413,7 @@ export class Account {
 /**
  * Checks if the address is a valid. Accepts checksummed addresses too.
  */
-export const isValidAddress = function (hexAddress: string): boolean {
+export const isValidAddress = function (hexAddress: string): hexAddress is PrefixedHexString {
   try {
     assertIsString(hexAddress)
   } catch (e: any) {
@@ -423,7 +438,7 @@ export const isValidAddress = function (hexAddress: string): boolean {
 export const toChecksumAddress = function (
   hexAddress: string,
   eip1191ChainId?: BigIntLike
-): string {
+): PrefixedHexString {
   assertIsHexString(hexAddress)
   const address = stripHexPrefix(hexAddress).toLowerCase()
 
@@ -435,7 +450,7 @@ export const toChecksumAddress = function (
 
   const bytes = utf8ToBytes(prefix + address)
   const hash = bytesToHex(keccak256(bytes)).slice(2)
-  let ret = '0x'
+  let ret = ''
 
   for (let i = 0; i < address.length; i++) {
     if (parseInt(hash[i], 16) >= 8) {
@@ -445,7 +460,7 @@ export const toChecksumAddress = function (
     }
   }
 
-  return ret
+  return `0x${ret}`
 }
 
 /**

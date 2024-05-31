@@ -1,8 +1,9 @@
 import { hexToBytes } from '@ethereumjs/util'
-import { Multiaddr, multiaddr } from 'multiaddr'
+import { isMultiaddr, multiaddr } from '@multiformats/multiaddr'
 import { URL } from 'url'
 
-import type { MultiaddrLike } from '../types'
+import type { MultiaddrLike } from '../types.js'
+import type { Multiaddr } from '@multiformats/multiaddr'
 
 // From: https://community.fortra.com/forums/intermapper/miscellaneous-topics/5acc4fcf-fa83-e511-80cf-0050568460e4
 const ip6RegExp = new RegExp(
@@ -30,7 +31,8 @@ export function parseMultiaddrs(input: MultiaddrLike): Multiaddr[] {
   }
   try {
     return input.map((s) => {
-      if (s instanceof Multiaddr) {
+      isMultiaddr
+      if (isMultiaddr(s)) {
         return s
       }
       // parse as multiaddr
@@ -74,5 +76,5 @@ export function parseMultiaddrs(input: MultiaddrLike): Multiaddr[] {
  * @param input hexadecimal string or Uint8Array
  */
 export function parseKey(input: string | Uint8Array): Uint8Array {
-  return input instanceof Uint8Array ? input : hexToBytes('0x' + input)
+  return input instanceof Uint8Array ? input : hexToBytes(`0x${input}`)
 }
